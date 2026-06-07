@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Modelo de Capacidad — Link</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  background: #f0f2f8;
+  color: #1a1a2e;
+  font-size: 14px;
+}
+
+header {
+  background: #1a1a2e;
+  color: white;
+  padding: 16px 32px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+header h1 { font-size: 18px; font-weight: 600; }
+header span { font-size: 13px; opacity: 0.6; }
+
+.main { padding: 24px 32px; display: flex; flex-direction: column; gap: 20px; }
+
+.row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+
+.panel {
+  background: white;
+  border-radius: 12px;
+  padding: 20px 24px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+
+.panel h2 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1a2e;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+/* Sliders */
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.slider-row label {
+  flex: 1;
+  font-size: 13px;
+  color: #444;
+  min-width: 160px;
+}
+.slider-row input[type=range] {
+  flex: 2;
+  accent-color: #4a7eff;
+  cursor: pointer;
+}
+.slider-val {
+  min-width: 40px;
+  text-align: right;
+  font-weight: 600;
+  font-size: 13px;
+  color: #1a1a2e;
+}
+.divider { border: none; border-top: 1px solid #f0f0f0; margin: 12px 0; }
+
+/* Metrics strip */
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+}
+.metric {
+  background: #f8f9ff;
+  border-radius: 8px;
+  padding: 12px 14px;
+  text-align: center;
+}
+.metric-label { font-size: 11px; color: #888; margin-bottom: 4px; }
+.metric-value { font-size: 20px; font-weight: 700; color: #1a1a2e; }
+.metric-unit { font-size: 11px; color: #888; }
+.metric.warn .metric-value { color: #e67e22; }
+.metric.danger .metric-value { color: #e74c3c; }
+
+/* Projects table */
+.table-actions { display: flex; justify-content: flex-end; margin-bottom: 12px; }
+.btn {
+  background: #4a7eff;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 7px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  font-weight: 500;
+}
+.btn:hover { background: #3a6eee; }
+.btn-danger { background: #e74c3c; }
+.btn-danger:hover { background: #c0392b; }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+
+table { width: 100%; border-collapse: collapse; }
+th {
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: #888;
+  padding: 8px 10px;
+  border-bottom: 2px solid #f0f0f0;
+  background: #fafafa;
+}
+td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #f5f5f5;
+  font-size: 13px;
+  vertical-align: middle;
+}
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: #fafbff; }
+
+td input, td select {
+  width: 100%;
+  border: 1px solid #e0e0e0;
+  border-radius: 5px;
+  padding: 5px 8px;
+  font-size: 13px;
+  background: white;
+  color: #1a1a2e;
+}
+td input:focus, td select:focus {
+  outline: none;
+  border-color: #4a7eff;
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.badge-normativo { background: #dbeafe; color: #1d4ed8; }
+.badge-estrategico { background: #ede9fe; color: #6d28d9; }
+.badge-evolucion { background: #dcfce7; color: #15803d; }
+
+/* Charts */
+.chart-wrap { position: relative; height: 280px; }
+.chart-wrap-sm { position: relative; height: 220px; }
+
+/* Inflection points */
+.inflexion-list { display: flex; flex-direction: column; gap: 8px; }
+.inflexion-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+.inflexion-item.alerta { background: #fff8e1; color: #b45309; border-left: 3px solid #f59e0b; }
+.inflexion-item.critico { background: #fef2f2; color: #b91c1c; border-left: 3px solid #ef4444; }
+.inflexion-item.deficit { background: #fdf4ff; color: #7e22ce; border-left: 3px solid #a855f7; }
+.inflexion-empty { color: #888; font-size: 13px; padding: 8px 0; }
+
+/* Legend */
+.legend { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
+.legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #555; }
+.legend-dot { width: 12px; height: 12px; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Modelo de Capacidad</h1>
+  <span>/ Link</span>
+</header>
+
+<div class="main">
+
+  <!-- Row 1: Controls -->
+  <div class="row-2">
+
+    <!-- Equipo y calidad -->
+    <div class="panel">
+      <h2>Equipo y calidad del software</h2>
+
+      <div class="slider-row">
+        <label>Programadores</label>
+        <input type="range" id="s_prog" min="1" max="20" value="6">
+        <span class="slider-val" id="v_prog">6</span>
+      </div>
+      <div class="slider-row">
+        <label>Testers</label>
+        <input type="range" id="s_test" min="1" max="20" value="3">
+        <span class="slider-val" id="v_test">3</span>
+      </div>
+      <div class="slider-row">
+        <label>Analistas funcionales</label>
+        <input type="range" id="s_anal" min="1" max="20" value="2">
+        <span class="slider-val" id="v_anal">2</span>
+      </div>
+
+      <hr class="divider">
+
+      <div class="slider-row">
+        <label>BAU actual conocido (%)</label>
+        <input type="range" id="s_baureal" min="5" max="90" step="1" value="40">
+        <span class="slider-val" id="v_baureal">40%</span>
+      </div>
+      <div style="font-size:11px;color:#aaa;margin:-8px 0 8px 0">
+        Ingresá el % de BAU que tu equipo experimenta hoy con los componentes actuales
+      </div>
+      <div style="background:#f8f9ff;border-radius:7px;padding:8px 12px;margin-bottom:14px;font-size:12px;color:#555;display:flex;gap:16px">
+        <span>Factor derivado: <strong id="factorDerived">—</strong></span>
+        <span style="color:#aaa">|</span>
+        <span>Verificación BAU: <strong id="bauVerif">—</strong> FTE</span>
+      </div>
+
+      <div class="slider-row">
+        <label>Complejidad ciclomática (1–5)</label>
+        <input type="range" id="s_comp" min="1" max="5" step="0.5" value="2">
+        <span class="slider-val" id="v_comp">2</span>
+      </div>
+      <div class="slider-row">
+        <label>Deuda técnica (1–5)</label>
+        <input type="range" id="s_deud" min="1" max="5" step="0.5" value="2">
+        <span class="slider-val" id="v_deud">2</span>
+      </div>
+      <div class="slider-row">
+        <label>Cobertura de tests (%)</label>
+        <input type="range" id="s_cob" min="0" max="100" step="5" value="50">
+        <span class="slider-val" id="v_cob">50%</span>
+      </div>
+    </div>
+
+    <!-- Portfolio -->
+    <div class="panel">
+      <h2>Proyección del portfolio</h2>
+
+      <div class="slider-row">
+        <label>Componentes iniciales (hoy)</label>
+        <input type="range" id="s_cinit" min="0" max="300" step="5" value="30">
+        <span class="slider-val" id="v_cinit">30</span>
+      </div>
+      <div class="slider-row">
+        <label>Nuevos componentes por trimestre</label>
+        <input type="range" id="s_cnuev" min="0" max="50" value="5">
+        <span class="slider-val" id="v_cnuev">5</span>
+      </div>
+      <div class="slider-row">
+        <label>Horizonte de proyección (trimestres)</label>
+        <input type="range" id="s_horiz" min="2" max="12" value="8">
+        <span class="slider-val" id="v_horiz">8</span>
+      </div>
+
+      <hr class="divider">
+
+      <!-- Métricas del trimestre actual -->
+      <div style="margin-top:4px">
+        <div style="font-size:12px;color:#888;margin-bottom:10px;font-weight:600">RESUMEN — HOY</div>
+        <div class="metrics" id="metricas">
+          <div class="metric"><div class="metric-label">Capacidad total</div><div class="metric-value" id="m_cap">—</div><div class="metric-unit">FTE</div></div>
+          <div class="metric"><div class="metric-label">BAU actual</div><div class="metric-value" id="m_bau">—</div><div class="metric-unit">FTE</div></div>
+          <div class="metric"><div class="metric-label">% BAU</div><div class="metric-value" id="m_pct">—</div><div class="metric-unit">%</div></div>
+          <div class="metric"><div class="metric-label">Modificador calidad</div><div class="metric-value" id="m_mod">—</div><div class="metric-unit">×</div></div>
+          <div class="metric"><div class="metric-label">Libre hoy</div><div class="metric-value" id="m_lib">—</div><div class="metric-unit">FTE</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 2: Projects -->
+  <div class="panel">
+    <h2>Proyectos en cartera</h2>
+    <div class="table-actions">
+      <button class="btn" onclick="agregarProyecto()">+ Agregar proyecto</button>
+    </div>
+    <table id="tablaProyectos">
+      <thead>
+        <tr>
+          <th style="width:22%">Nombre</th>
+          <th style="width:14%">Vertical</th>
+          <th style="width:10%">FTEs</th>
+          <th style="width:12%">Q inicio</th>
+          <th style="width:14%">Duración (Q)</th>
+          <th style="width:16%">Componentes entregados</th>
+          <th style="width:12%"></th>
+        </tr>
+      </thead>
+      <tbody id="proyectosBody">
+        <!-- rows added dynamically -->
+      </tbody>
+    </table>
+    <div id="tablaVacia" style="text-align:center;padding:20px;color:#aaa;font-size:13px;display:none">
+      No hay proyectos en cartera. Agregá uno para verlo en los gráficos.
+    </div>
+  </div>
+
+  <!-- Selector de escenario global -->
+  <div class="panel" style="padding:16px 24px">
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+      <span style="font-size:13px;font-weight:600;color:#555">Escenario activo:</span>
+      <div style="display:flex;gap:8px">
+        <button class="tab-escenario" data-esc="optimista"
+          onclick="setEscenario('optimista')"
+          style="border:1.5px solid #22c55e;background:#f3f4f6;color:#555;border-radius:6px;padding:6px 16px;font-size:13px;font-weight:600;cursor:pointer">
+          Optimista
+        </button>
+        <button class="tab-escenario" data-esc="base"
+          onclick="setEscenario('base')"
+          style="border:1.5px solid #3b82f6;background:#3b82f6;color:white;border-radius:6px;padding:6px 16px;font-size:13px;font-weight:600;cursor:pointer">
+          Base
+        </button>
+        <button class="tab-escenario" data-esc="pesimista"
+          onclick="setEscenario('pesimista')"
+          style="border:1.5px solid #e5e7eb;background:#f3f4f6;color:#555;border-radius:6px;padding:6px 16px;font-size:13px;font-weight:600;cursor:pointer">
+          Pesimista
+        </button>
+      </div>
+      <span id="escDesc" style="font-size:12px;color:#888;font-style:italic"></span>
+    </div>
+  </div>
+
+  <!-- Row 3: Charts -->
+  <div class="panel">
+    <h2>Evolución trimestral de la distribución de capacidad (FTE)</h2>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#6b7280"></div>BAU</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div>Normativo</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#8b5cf6"></div>Estratégico</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#22c55e"></div>Evolución</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#d1d5db"></div>Libre</div>
+    </div>
+    <div class="chart-wrap">
+      <canvas id="chartBarras"></canvas>
+    </div>
+  </div>
+
+  <!-- Distribución % por vertical -->
+  <div class="panel">
+    <h2>Distribución de esfuerzo por vertical (%)</h2>
+
+    <!-- Selector de trimestre + dona -->
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+      <label style="font-size:13px;color:#555;font-weight:500">Ver trimestre:</label>
+      <select id="selectTrimestre" onchange="actualizarDona()"
+        style="border:1px solid #e0e0e0;border-radius:6px;padding:5px 10px;font-size:13px;background:white">
+      </select>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:40px;margin-bottom:24px;flex-wrap:wrap">
+      <!-- Dona -->
+      <div style="position:relative;width:180px;height:180px;flex-shrink:0">
+        <canvas id="chartDona" width="180" height="180"></canvas>
+        <div style="position:absolute;top:0;left:0;width:180px;height:180px;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none">
+          <div style="font-size:11px;color:#888;line-height:1">Capacidad</div>
+          <div id="donaCap" style="font-size:20px;font-weight:700;color:#1a1a2e;line-height:1.2">—</div>
+          <div style="font-size:11px;color:#888;line-height:1">FTE</div>
+        </div>
+      </div>
+
+      <!-- Detalle lateral -->
+      <div id="donaDetalle" style="flex:1;min-width:200px;display:flex;flex-direction:column;gap:10px"></div>
+    </div>
+
+    <!-- Tabla completa por trimestre -->
+    <div style="overflow-x:auto">
+      <table id="tablaDistribucion" style="min-width:600px">
+        <thead>
+          <tr>
+            <th>Trimestre</th>
+            <th style="color:#6b7280">BAU %</th>
+            <th style="color:#3b82f6">Normativo %</th>
+            <th style="color:#8b5cf6">Estratégico %</th>
+            <th style="color:#22c55e">Evolución %</th>
+            <th style="color:#9ca3af">Libre %</th>
+          </tr>
+        </thead>
+        <tbody id="distBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="row-2">
+    <div class="panel">
+      <h2>% del equipo consumido por BAU a lo largo del tiempo</h2>
+      <div class="chart-wrap-sm">
+        <canvas id="chartLinea"></canvas>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Puntos de inflexión detectados</h2>
+      <div class="inflexion-list" id="inflexiones">
+        <span class="inflexion-empty">Calculando...</span>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<script>
+// ─── Estado ─────────────────────────────────────────────────────────────────
+let proyectos = [];
+let proyectoId = 0;
+let chartBarras = null;
+let chartLinea  = null;
+let chartDona   = null;
+let modeloActual = [];
+
+// ─── Constantes del modelo ───────────────────────────────────────────────────
+const FACTOR_BASE_BAU_DEFAULT = 0.038; // FTE por componente por trimestre (calibrado empiricamente)
+
+// ─── Lectura de parámetros ───────────────────────────────────────────────────
+function getParams() {
+  const programadores = +document.getElementById('s_prog').value;
+  const testers       = +document.getElementById('s_test').value;
+  const analistas     = +document.getElementById('s_anal').value;
+  const complejidad   = +document.getElementById('s_comp').value;
+  const deuda         = +document.getElementById('s_deud').value;
+  const cobertura     = +document.getElementById('s_cob').value;
+  const compIniciales = +document.getElementById('s_cinit').value;
+  const compNuevos    = +document.getElementById('s_cnuev').value;
+  const horizonte     = +document.getElementById('s_horiz').value;
+  const bauRealPct    = +document.getElementById('s_baureal').value;
+
+  const capacidadTotal = programadores + testers + analistas;
+  const modificador    = calcModificador(complejidad, deuda, cobertura);
+
+  // Factor derivado: factor = (BAU_fte) / (componentes × modificador)
+  const bauFteReal = (bauRealPct / 100) * capacidadTotal;
+  const factorBau  = compIniciales > 0 && modificador > 0
+    ? bauFteReal / (compIniciales * modificador)
+    : 0.038; // fallback si no hay componentes aún
+
+  return { programadores, testers, analistas, factorBau, bauRealPct,
+           complejidad, deuda, cobertura, compIniciales, compNuevos, horizonte };
+}
+
+// ─── Modificador de calidad ──────────────────────────────────────────────────
+function calcModificador(complejidad, deuda, cobertura) {
+  const mod = 1
+    + (complejidad - 1) * 0.20
+    + (deuda - 1)       * 0.15
+    - (cobertura / 100) * 0.30;
+  return Math.max(0.5, mod);
+}
+
+// ─── Escenarios ──────────────────────────────────────────────────────────────
+// Los multiplicadores actúan sobre el MODIFICADOR DE CALIDAD (no el factor).
+// El factor queda fijo (calibrado con el BAU real conocido).
+// Representan la trayectoria de calidad del equipo a futuro.
+const ESCENARIOS = [
+  { id: 'optimista', label: 'Optimista', modMult: 0.70, color: '#22c55e',
+    desc: 'Calidad mejora: cobertura ↑, deuda técnica ↓ → BAU crece más lento' },
+  { id: 'base',      label: 'Base',      modMult: 1.00, color: '#3b82f6',
+    desc: 'Calidad se mantiene como hoy → BAU crece al ritmo calibrado' },
+  { id: 'pesimista', label: 'Pesimista', modMult: 1.40, color: '#ef4444',
+    desc: 'Calidad se degrada: deuda ↑, cobertura ↓ → BAU crece más rápido' },
+];
+let escenarioActivo = 'base';
+
+// ─── Modelo central ──────────────────────────────────────────────────────────
+function calcularModelo(params, modMult = 1.0) {
+  const { programadores, testers, analistas, factorBau, complejidad, deuda, cobertura,
+          compIniciales, compNuevos, horizonte } = params;
+
+  const capacidadTotal  = programadores + testers + analistas;
+  const modificadorBase = calcModificador(complejidad, deuda, cobertura);
+  // El escenario ajusta el modificador de calidad, el factor queda fijo
+  const modificador     = modificadorBase * modMult;
+
+  const quarters = [];
+
+  for (let i = 0; i <= horizonte; i++) {
+    const compDeProyectos = proyectos
+      .filter(p => (p.inicio + p.duracion) <= i)
+      .reduce((s, p) => s + p.componentes, 0);
+
+    const compActivos = compIniciales + compNuevos * i + compDeProyectos;
+    const bau = Math.min(compActivos * factorBau * modificador, capacidadTotal);
+    const capDisponible = Math.max(0, capacidadTotal - bau);
+
+    const demNorm = proyectos
+      .filter(p => p.vertical === 'Normativo' && p.inicio <= i && i < p.inicio + p.duracion)
+      .reduce((s, p) => s + p.fte, 0);
+    const demEstr = proyectos
+      .filter(p => p.vertical === 'Estratégico' && p.inicio <= i && i < p.inicio + p.duracion)
+      .reduce((s, p) => s + p.fte, 0);
+    const demEvol = proyectos
+      .filter(p => p.vertical === 'Evolución' && p.inicio <= i && i < p.inicio + p.duracion)
+      .reduce((s, p) => s + p.fte, 0);
+
+    const normCub = Math.min(demNorm, capDisponible);
+    const resta1  = Math.max(0, capDisponible - normCub);
+    const estrCub = Math.min(demEstr, resta1);
+    const resta2  = Math.max(0, resta1 - estrCub);
+    const evolCub = Math.min(demEvol, resta2);
+    const libre   = Math.max(0, resta2 - evolCub);
+
+    quarters.push({
+      label:          i === 0 ? 'Hoy' : `Q${i}`,
+      compActivos,
+      bau:            +bau.toFixed(2),
+      normativo:      +normCub.toFixed(2),
+      estrategico:    +estrCub.toFixed(2),
+      evolucion:      +evolCub.toFixed(2),
+      libre:          +libre.toFixed(2),
+      capacidadTotal: +capacidadTotal.toFixed(2),
+      pctBau:         +((bau / capacidadTotal) * 100).toFixed(1),
+      defNorm:        +(Math.max(0, demNorm - normCub)).toFixed(2),
+      defEstr:        +(Math.max(0, demEstr - estrCub)).toFixed(2),
+      defEvol:        +(Math.max(0, demEvol - evolCub)).toFixed(2),
+    });
+  }
+
+  return { quarters, modificador, capacidadTotal };
+}
+
+function setEscenario(id) {
+  escenarioActivo = id;
+  document.querySelectorAll('.tab-escenario').forEach(b => {
+    const esc = ESCENARIOS.find(e => e.id === b.dataset.esc);
+    b.style.background  = b.dataset.esc === id ? esc.color : '#f3f4f6';
+    b.style.color       = b.dataset.esc === id ? 'white'   : '#555';
+    b.style.borderColor = b.dataset.esc === id ? esc.color : '#e5e7eb';
+  });
+  actualizar();
+}
+
+// ─── Inflexiones ─────────────────────────────────────────────────────────────
+function detectarInflexiones(quarters) {
+  const puntos = [];
+  quarters.forEach((q, i) => {
+    if (q.pctBau >= 70 && (i === 0 || quarters[i-1].pctBau < 70))
+      puntos.push({ tipo: 'critico', label: q.label, msg: `BAU supera el umbral crítico del 70% (${q.pctBau}%)` });
+    else if (q.pctBau >= 50 && (i === 0 || quarters[i-1].pctBau < 50))
+      puntos.push({ tipo: 'alerta', label: q.label, msg: `BAU supera el umbral de alerta del 50% (${q.pctBau}%)` });
+
+    if (q.defNorm > 0)
+      puntos.push({ tipo: 'deficit', label: q.label, msg: `Déficit Normativo: faltan ${q.defNorm} FTE` });
+    if (q.defEstr > 0)
+      puntos.push({ tipo: 'deficit', label: q.label, msg: `Déficit Estratégico: faltan ${q.defEstr} FTE` });
+    if (q.defEvol > 0)
+      puntos.push({ tipo: 'deficit', label: q.label, msg: `Déficit Evolución: faltan ${q.defEvol} FTE` });
+  });
+  return puntos;
+}
+
+// ─── Render ──────────────────────────────────────────────────────────────────
+function actualizar() {
+  const params = getParams();
+
+  // Mostrar factor derivado y verificación
+  const modificadorActual = calcModificador(params.complejidad, params.deuda, params.cobertura);
+  const bauFteVerif = params.compIniciales * params.factorBau * modificadorActual;
+  document.getElementById('factorDerived').textContent = params.factorBau.toFixed(4);
+  document.getElementById('bauVerif').textContent = bauFteVerif.toFixed(1)
+    + ' (' + ((bauFteVerif / (params.programadores + params.testers + params.analistas)) * 100).toFixed(0) + '%)';
+
+  // Calcular los 3 escenarios (modMult actúa sobre el modificador de calidad)
+  const modelos = {};
+  ESCENARIOS.forEach(e => {
+    modelos[e.id] = calcularModelo(params, e.modMult);
+  });
+
+  const { quarters, modificador, capacidadTotal } = modelos[escenarioActivo];
+  const hoy = quarters[0];
+  const escActual = ESCENARIOS.find(e => e.id === escenarioActivo);
+  const descEl = document.getElementById('escDesc');
+  if (descEl) descEl.textContent = escActual.desc;
+
+  // Métricas de hoy
+  document.getElementById('m_cap').textContent = capacidadTotal;
+  document.getElementById('m_bau').textContent = hoy.bau.toFixed(1);
+
+  const pctEl = document.getElementById('m_pct');
+  pctEl.textContent = hoy.pctBau.toFixed(0);
+  const pctParent = pctEl.closest('.metric');
+  pctParent.className = 'metric' + (hoy.pctBau >= 70 ? ' danger' : hoy.pctBau >= 50 ? ' warn' : '');
+
+  document.getElementById('m_mod').textContent = modificador.toFixed(2);
+  document.getElementById('m_lib').textContent = hoy.libre.toFixed(1);
+
+  // Inflexiones
+  const inflexiones = detectarInflexiones(quarters);
+  const el = document.getElementById('inflexiones');
+  if (inflexiones.length === 0) {
+    el.innerHTML = '<span class="inflexion-empty">No se detectan puntos de inflexión en el horizonte configurado.</span>';
+  } else {
+    el.innerHTML = inflexiones.map(p =>
+      `<div class="inflexion-item ${p.tipo}">
+        <strong>${p.label}</strong> — ${p.msg}
+      </div>`
+    ).join('');
+  }
+
+  // Guardar modelo para la dona
+  modeloActual = quarters;
+
+  // Actualizar selector de trimestre
+  const sel = document.getElementById('selectTrimestre');
+  const prevVal = sel.value;
+  sel.innerHTML = quarters.map((q,i) => `<option value="${i}">${q.label}</option>`).join('');
+  sel.value = prevVal && +prevVal < quarters.length ? prevVal : '0';
+  actualizarDona();
+
+  // Tabla de distribución %
+  const distBody = document.getElementById('distBody');
+  distBody.innerHTML = quarters.map(q => {
+    const t = q.capacidadTotal;
+    const pct = v => t > 0 ? (v / t * 100).toFixed(0) + '%' : '—';
+    const pctBauN  = t > 0 ? q.bau        / t * 100 : 0;
+    const pctNorm  = t > 0 ? q.normativo   / t * 100 : 0;
+    const pctEstr  = t > 0 ? q.estrategico / t * 100 : 0;
+    const pctEvol  = t > 0 ? q.evolucion   / t * 100 : 0;
+    const pctLib   = t > 0 ? q.libre       / t * 100 : 0;
+    const bauClass = pctBauN >= 70 ? 'color:#ef4444;font-weight:700' : pctBauN >= 50 ? 'color:#f59e0b;font-weight:600' : 'color:#6b7280';
+    return `<tr>
+      <td><strong>${q.label}</strong></td>
+      <td style="${bauClass}">${pct(q.bau)}</td>
+      <td style="color:#3b82f6">${pct(q.normativo)}</td>
+      <td style="color:#8b5cf6">${pct(q.estrategico)}</td>
+      <td style="color:#22c55e">${pct(q.evolucion)}</td>
+      <td style="color:#9ca3af">${pct(q.libre)}</td>
+    </tr>`;
+  }).join('');
+
+  // Datos de gráficos
+  const labels   = quarters.map(q => q.label);
+  const dataBau  = quarters.map(q => q.bau);
+  const dataNorm = quarters.map(q => q.normativo);
+  const dataEstr = quarters.map(q => q.estrategico);
+  const dataEvol = quarters.map(q => q.evolucion);
+  const dataLib  = quarters.map(q => q.libre);
+  const dataPct  = quarters.map(q => q.pctBau);
+
+  // Gráfico de barras apiladas
+  if (chartBarras) chartBarras.destroy();
+  const capTotal = capacidadTotal; // closure para el formatter
+  chartBarras = new Chart(document.getElementById('chartBarras'), {
+    type: 'bar',
+    plugins: [ChartDataLabels],
+    data: {
+      labels,
+      datasets: [
+        { label: 'BAU',         data: dataBau,  backgroundColor: '#6b7280', stack: 'a' },
+        { label: 'Normativo',   data: dataNorm, backgroundColor: '#3b82f6', stack: 'a' },
+        { label: 'Estratégico', data: dataEstr, backgroundColor: '#8b5cf6', stack: 'a' },
+        { label: 'Evolución',   data: dataEvol, backgroundColor: '#22c55e', stack: 'a' },
+        { label: 'Libre',       data: dataLib,  backgroundColor: '#d1d5db', stack: 'a' },
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        datalabels: {
+          display: ctx => ctx.dataset.data[ctx.dataIndex] / capTotal >= 0.05,
+          color: ctx => ctx.dataset.label === 'Libre' ? '#666' : 'white',
+          font: { weight: '600', size: 11 },
+          formatter: (value) => value > 0
+            ? ((value / capTotal) * 100).toFixed(0) + '%'
+            : '',
+          anchor: 'center',
+          align: 'center',
+          clamp: true,
+        }
+      },
+      scales: {
+        x: { grid: { display: false } },
+        y: {
+          title: { display: true, text: 'FTE', font: { size: 11 } },
+          beginAtZero: true,
+          max: Math.ceil(capacidadTotal * 1.15),
+          grid: { color: '#f0f0f0' }
+        }
+      }
+    }
+  });
+
+  // Gráfico de línea % BAU — 3 escenarios
+  if (chartLinea) chartLinea.destroy();
+  chartLinea = new Chart(document.getElementById('chartLinea'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Optimista',
+          data: modelos.optimista.quarters.map(q => q.pctBau),
+          borderColor: '#22c55e',
+          backgroundColor: 'rgba(34,197,94,0.06)',
+          pointBackgroundColor: '#22c55e',
+          pointRadius: 3,
+          tension: 0.3,
+          borderWidth: 2,
+          fill: false,
+        },
+        {
+          label: 'Base',
+          data: modelos.base.quarters.map(q => q.pctBau),
+          borderColor: '#3b82f6',
+          backgroundColor: 'rgba(59,130,246,0.08)',
+          pointBackgroundColor: '#3b82f6',
+          pointRadius: 4,
+          tension: 0.3,
+          borderWidth: 2.5,
+          fill: false,
+        },
+        {
+          label: 'Pesimista',
+          data: modelos.pesimista.quarters.map(q => q.pctBau),
+          borderColor: '#ef4444',
+          backgroundColor: 'rgba(239,68,68,0.06)',
+          pointBackgroundColor: '#ef4444',
+          pointRadius: 3,
+          tension: 0.3,
+          borderWidth: 2,
+          fill: false,
+        },
+        {
+          label: 'Umbral crítico 70%',
+          data: labels.map(() => 70),
+          borderColor: '#ef4444',
+          borderDash: [6, 4],
+          pointRadius: 0,
+          borderWidth: 1.5,
+          fill: false,
+        },
+        {
+          label: 'Umbral de alerta 50%',
+          data: labels.map(() => 50),
+          borderColor: '#f59e0b',
+          borderDash: [6, 4],
+          pointRadius: 0,
+          borderWidth: 1.5,
+          fill: false,
+        },
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'top', labels: { font: { size: 11 }, boxWidth: 12 } }
+      },
+      scales: {
+        x: { grid: { display: false } },
+        y: {
+          min: 0, max: 100,
+          ticks: { callback: v => v + '%' },
+          grid: { color: '#f0f0f0' }
+        }
+      }
+    }
+  });
+}
+
+// ─── Sliders ─────────────────────────────────────────────────────────────────
+function bindSlider(sliderId, valId, suffix) {
+  const s = document.getElementById(sliderId);
+  const v = document.getElementById(valId);
+  s.addEventListener('input', () => {
+    v.textContent = s.value + (suffix || '');
+    actualizar();
+  });
+}
+
+bindSlider('s_prog',    'v_prog');
+bindSlider('s_test',    'v_test');
+bindSlider('s_anal',    'v_anal');
+bindSlider('s_baureal', 'v_baureal', '%');
+bindSlider('s_comp',    'v_comp');
+bindSlider('s_deud',    'v_deud');
+bindSlider('s_cob',     'v_cob',   '%');
+bindSlider('s_cinit',   'v_cinit');
+bindSlider('s_cnuev',   'v_cnuev');
+bindSlider('s_horiz',   'v_horiz');
+
+// ─── Dona ─────────────────────────────────────────────────────────────────────
+function actualizarDona() {
+  const idx = +document.getElementById('selectTrimestre').value;
+  const q   = modeloActual[idx];
+  if (!q) return;
+
+  const t = q.capacidadTotal;
+  const pct = v => t > 0 ? +(v / t * 100).toFixed(1) : 0;
+
+  const valores = [
+    { label: 'BAU',         val: q.bau,         pct: pct(q.bau),         color: '#6b7280' },
+    { label: 'Normativo',   val: q.normativo,   pct: pct(q.normativo),   color: '#3b82f6' },
+    { label: 'Estratégico', val: q.estrategico, pct: pct(q.estrategico), color: '#8b5cf6' },
+    { label: 'Evolución',   val: q.evolucion,   pct: pct(q.evolucion),   color: '#22c55e' },
+    { label: 'Libre',       val: q.libre,       pct: pct(q.libre),       color: '#d1d5db' },
+  ];
+
+  document.getElementById('donaCap').textContent = t;
+
+  // Detalle lateral
+  document.getElementById('donaDetalle').innerHTML = valores.map(v => `
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="width:12px;height:12px;border-radius:3px;background:${v.color};flex-shrink:0"></div>
+      <div style="flex:1;font-size:13px;color:#444">${v.label}</div>
+      <div style="font-weight:700;font-size:14px;color:#1a1a2e;min-width:44px;text-align:right">${v.pct}%</div>
+      <div style="font-size:12px;color:#888;min-width:50px;text-align:right">${v.val.toFixed(1)} FTE</div>
+    </div>
+  `).join('');
+
+  // Gráfico dona
+  if (chartDona) chartDona.destroy();
+  chartDona = new Chart(document.getElementById('chartDona'), {
+    type: 'doughnut',
+    data: {
+      labels: valores.map(v => v.label),
+      datasets: [{
+        data:            valores.map(v => v.val),
+        backgroundColor: valores.map(v => v.color),
+        borderWidth: 2,
+        borderColor: '#fff',
+        hoverOffset: 4,
+      }]
+    },
+    options: {
+      responsive: false,
+      cutout: '62%',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => ` ${ctx.label}: ${ctx.parsed.toFixed(1)} FTE (${pct(ctx.parsed)}%)`
+          }
+        }
+      },
+      animation: { duration: 300 },
+    }
+  });
+}
+
+// ─── Proyectos ────────────────────────────────────────────────────────────────
+function agregarProyecto(nombre='', vertical='Normativo', fte=1, inicio=1, duracion=2, componentes=0) {
+  const id = ++proyectoId;
+  proyectos.push({ id, nombre, vertical, fte, inicio, duracion, componentes });
+  renderTabla();
+  actualizar();
+}
+
+function eliminarProyecto(id) {
+  proyectos = proyectos.filter(p => p.id !== id);
+  renderTabla();
+  actualizar();
+}
+
+function actualizarProyecto(id, campo, valor) {
+  const p = proyectos.find(p => p.id === id);
+  if (!p) return;
+  p[campo] = ['fte','inicio','duracion','componentes'].includes(campo) ? +valor : valor;
+  actualizar();
+}
+
+function renderTabla() {
+  const tbody = document.getElementById('proyectosBody');
+  const vacio = document.getElementById('tablaVacia');
+
+  if (proyectos.length === 0) {
+    tbody.innerHTML = '';
+    vacio.style.display = 'block';
+    return;
+  }
+  vacio.style.display = 'none';
+
+  tbody.innerHTML = proyectos.map(p => `
+    <tr>
+      <td><input type="text" value="${p.nombre}" placeholder="Nombre del proyecto"
+          onchange="actualizarProyecto(${p.id},'nombre',this.value)"></td>
+      <td>
+        <select onchange="actualizarProyecto(${p.id},'vertical',this.value)">
+          <option value="Normativo"  ${p.vertical==='Normativo'  ?'selected':''}>Normativo</option>
+          <option value="Estratégico"${p.vertical==='Estratégico'?'selected':''}>Estratégico</option>
+          <option value="Evolución"  ${p.vertical==='Evolución'  ?'selected':''}>Evolución</option>
+        </select>
+      </td>
+      <td><input type="number" min="0.5" max="20" step="0.5" value="${p.fte}"
+          onchange="actualizarProyecto(${p.id},'fte',this.value)"></td>
+      <td>
+        <select onchange="actualizarProyecto(${p.id},'inicio',this.value)">
+          ${[...Array(12)].map((_,i)=>`<option value="${i+1}" ${p.inicio===i+1?'selected':''}>Q${i+1}</option>`).join('')}
+        </select>
+      </td>
+      <td><input type="number" min="1" max="12" step="1" value="${p.duracion}"
+          onchange="actualizarProyecto(${p.id},'duracion',this.value)"></td>
+      <td><input type="number" min="0" max="500" step="1" value="${p.componentes}"
+          onchange="actualizarProyecto(${p.id},'componentes',this.value)"></td>
+      <td><button class="btn btn-danger btn-sm" onclick="eliminarProyecto(${p.id})">Eliminar</button></td>
+    </tr>
+  `).join('');
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+renderTabla();
+actualizar();
+</script>
+</body>
+</html>
